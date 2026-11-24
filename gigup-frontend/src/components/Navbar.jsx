@@ -1,0 +1,1 @@
+// Horní lišta (dynamicky mění odkazy podle role)

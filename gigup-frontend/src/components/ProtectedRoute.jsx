@@ -1,0 +1,1 @@
+// Ochrana stránek podle přihlášení a role

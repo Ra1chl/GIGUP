@@ -1,0 +1,1 @@
+//Přehled nabídek (Accept / Reject / CounterOffer)

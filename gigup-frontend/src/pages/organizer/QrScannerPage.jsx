@@ -1,0 +1,1 @@
+//Webová čtečka QR kódů u vstupu

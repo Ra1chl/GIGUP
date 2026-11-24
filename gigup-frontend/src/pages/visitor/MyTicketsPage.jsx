@@ -1,0 +1,1 @@
+// Zobrazení QR vstupenek

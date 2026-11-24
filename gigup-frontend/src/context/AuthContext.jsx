@@ -1,0 +1,1 @@
+//Stav přihlášeného uživatele (user, role, login, logout)
