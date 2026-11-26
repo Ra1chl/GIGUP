@@ -1,164 +1,186 @@
-// src/context/GigupContext.jsx
-import { createContext, useContext, useState } from "react";
-import {
-    mockUsers,
-    mockDjProfiles,
-    mockOrganizerProfiles,
-    mockEvents,
-    mockBookings,
-    mockTickets,
-} from "../api/mockData";
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const GigupContext = createContext(null);
+const API_BASE = 'http://localhost:5013/api';
+const GigupContext = createContext();
+
+const USERS_LIST = [
+    { id: 4, fullName: 'Jakub Svoboda', role: 'Visitor' },
+    { id: 1, djProfileId: 1, fullName: 'DJ RAIVOX', role: 'DJ' },
+    { id: 2, organizerId: 1, fullName: 'Storm Club Prague', role: 'Organizer' },
+];
+
+const toGenreArray = (genres) => {
+    if (Array.isArray(genres)) return genres;
+    if (typeof genres === 'string' && genres.trim() !== '') {
+        return genres.split(',').map((g) => g.trim());
+    }
+    return [];
+};
 
 export function GigupProvider({ children }) {
-    const [currentUser, setCurrentUser] = useState(mockUsers[0]); // Výchozí: DJ RAIVOX
-    const [djs, setDjs] = useState(mockDjProfiles);
-    const [events, setEvents] = useState(mockEvents);
-    const [bookings, setBookings] = useState(mockBookings);
-    const [tickets, setTickets] = useState(mockTickets);
+    const [currentUserId, setCurrentUserId] = useState(4);
+    const [events, setEvents] = useState([]);
+    const [djs, setDjs] = useState([]);
+    const [bookings, setBookings] = useState([]);
+    const [tickets, setTickets] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const currentUser = USERS_LIST.find((u) => u.id === Number(currentUserId)) || USERS_LIST[0];
+    const role = currentUser.role;
+
+    const setRole = (newRole) => {
+        const found = USERS_LIST.find((u) => u.role === newRole);
+        if (found) setCurrentUserId(found.id);
+    };
 
     const switchUser = (userId) => {
-        const found = mockUsers.find((u) => u.id === Number(userId));
-        if (found) setCurrentUser(found);
+        setCurrentUserId(Number(userId));
     };
 
-    const sendBookingOffer = ({ eventId, djProfileId, offeredPrice, setStartTime, setEndTime, organizerNote }) => {
-        const ev = events.find((e) => e.id === Number(eventId));
-        const dj = djs.find((d) => d.id === Number(djProfileId));
-        if (!ev || !dj) return;
+    const refreshAllData = useCallback(async () => {
+        try {
+            setError(null);
+            const [eventsRes, djsRes, bookingsRes] = await Promise.all([
+                fetch(`${API_BASE}/events`),
+                fetch(`${API_BASE}/djs`),
+                fetch(`${API_BASE}/bookings`),
+            ]);
 
-        const newBooking = {
-            id: Date.now(),
-            eventId: ev.id,
-            eventTitle: ev.title,
-            venueName: ev.venueName,
-            eventDate: ev.startDateTime.split("T")[0],
-            djProfileId: dj.id,
-            djStageName: dj.stageName,
-            djGenres: dj.genres,
-            offeredPrice: Number(offeredPrice),
-            setStartTime,
-            setEndTime,
-            status: "Pending",
-            organizerNote,
-            djNote: "",
-        };
-        setBookings((prev) => [newBooking, ...prev]);
-    };
+            if (!eventsRes.ok || !djsRes.ok || !bookingsRes.ok) {
+                throw new Error('Nepodařilo se načíst data ze serveru.');
+            }
 
-    const respondToBooking = (bookingId, status, newPrice = null, djNote = "") => {
-        setBookings((prev) =>
-            prev.map((b) =>
-                b.id === bookingId
-                    ? {
-                        ...b,
-                        status,
-                        offeredPrice: newPrice !== null ? Number(newPrice) : b.offeredPrice,
-                        djNote: djNote || b.djNote,
-                    }
-                    : b
-            )
-        );
-    };
+            const [eventsData, djsData, bookingsData] = await Promise.all([
+                eventsRes.json(),
+                djsRes.json(),
+                bookingsRes.json(),
+            ]);
 
-    const createEvent = (eventData) => {
-        const org = mockOrganizerProfiles.find((o) => o.id === currentUser?.organizerProfileId);
-        const newEvent = {
-            id: Date.now(),
-            organizerId: org ? org.id : 1,
-            organizerName: org ? org.organizationName : "Pražský Promotér",
-            ...eventData,
-            capacity: Number(eventData.capacity),
-            ticketPrice: Number(eventData.ticketPrice),
-            soldTickets: 0,
-            status: "Published",
-        };
-        setEvents((prev) => [newEvent, ...prev]);
-        return newEvent;
-    };
+            const normalizedDjs = djsData.map((dj) => ({
+                ...dj,
+                genres: toGenreArray(dj.genres),
+            }));
 
-    const purchaseTicket = (eventId) => {
-        const ev = events.find((e) => e.id === Number(eventId));
-        if (!ev) return null;
+            const normalizedBookings = bookingsData.map((b) => ({
+                ...b,
+                djId: b.djProfileId,
+                genres: toGenreArray(b.genres),
+                dj: b.dj
+                    ? { ...b.dj, genres: toGenreArray(b.dj.genres) }
+                    : { id: b.djProfileId, stageName: b.djStageName, genres: toGenreArray(b.genres) },
+            }));
 
-        const randomHex = Array.from({ length: 20 }, () =>
-            Math.floor(Math.random() * 16).toString(16).toUpperCase()
-        ).join("");
+            const normalizedEvents = eventsData.map((ev) => ({
+                ...ev,
+                lineup: Array.isArray(ev.lineup)
+                    ? ev.lineup.map((item) => ({
+                        ...item,
+                        genres: toGenreArray(item.genres),
+                    }))
+                    : [],
+            }));
 
-        const newTicket = {
-            id: Date.now(),
-            eventId: ev.id,
-            eventTitle: ev.title,
-            venueName: ev.venueName,
-            startDateTime: ev.startDateTime,
-            userId: currentUser ? currentUser.id : 4,
-            holderName: currentUser ? currentUser.fullName : "Host",
-            ticketCode: `GIGUP-${randomHex}`,
-            purchasePrice: ev.ticketPrice,
-            status: "Valid",
-            purchasedAt: new Date().toISOString(),
-            scannedAt: null,
-        };
+            setEvents(normalizedEvents);
+            setDjs(normalizedDjs);
+            setBookings(normalizedBookings);
 
-        setTickets((prev) => [newTicket, ...prev]);
-        setEvents((prev) =>
-            prev.map((e) => (e.id === ev.id ? { ...e, soldTickets: e.soldTickets + 1 } : e))
-        );
-        return newTicket;
-    };
-
-    const validateTicketCode = (code, expectedEventId = null) => {
-        const cleanCode = code.trim();
-        const ticket = tickets.find((t) => t.ticketCode === cleanCode);
-
-        if (!ticket) {
-            return { ok: false, reason: "INVALID", message: "Neplatná vstupenka! Kód neexistuje." };
+            if (role === 'Visitor') {
+                const tRes = await fetch(`${API_BASE}/tickets/user/${currentUser.id}`);
+                if (tRes.ok) setTickets(await tRes.json());
+            }
+        } catch (err) {
+            console.error('API chyba:', err);
+            setError('Backend na localhost:5013 neodpovídá.');
+        } finally {
+            setLoading(false);
         }
-        if (expectedEventId && ticket.eventId !== Number(expectedEventId)) {
-            return {
-                ok: false,
-                reason: "WRONG_EVENT",
-                message: `Vstupenka patří na jinou akci (${ticket.eventTitle}).`,
-            };
-        }
-        if (ticket.status === "Used") {
-            return {
-                ok: false,
-                reason: "ALREADY_USED",
-                message: `POZOR! Vstupenka již byla použita (${new Date(ticket.scannedAt).toLocaleTimeString()}).`,
-                ticket,
-            };
-        }
+    }, [role, currentUser]);
 
-        const now = new Date().toISOString();
-        setTickets((prev) =>
-            prev.map((t) => (t.id === ticket.id ? { ...t, status: "Used", scannedAt: now } : t))
-        );
+    useEffect(() => {
+        refreshAllData();
+    }, [refreshAllData]);
 
-        return {
-            ok: true,
-            reason: "VALID",
-            message: `Vstup povolen: ${ticket.holderName}`,
-            ticket: { ...ticket, status: "Used", scannedAt: now },
-        };
+    const purchaseTicket = async (eventId) => {
+        const res = await fetch(`${API_BASE}/tickets/purchase`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId: Number(eventId), userId: currentUser.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Chyba při nákupu vstupenky.');
+        await refreshAllData();
+        return data;
+    };
+
+    const sendBookingOffer = async ({ eventId, djProfileId, djId, offeredPrice, setStartTime, setEndTime, organizerNote }) => {
+        const res = await fetch(`${API_BASE}/bookings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                eventId: Number(eventId),
+                djProfileId: Number(djProfileId ?? djId),
+                offeredPrice: Number(offeredPrice),
+                setStartTime: setStartTime.length === 5 ? `${setStartTime}:00` : setStartTime,
+                setEndTime: setEndTime.length === 5 ? `${setEndTime}:00` : setEndTime,
+                organizerNote,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Chyba při odesílání nabídky.');
+        await refreshAllData();
+        return data;
+    };
+
+    const respondToBooking = async (bookingId, status, djNote = '', counterPrice = null) => {
+        const res = await fetch(`${API_BASE}/bookings/${bookingId}/respond`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                status,
+                counterPrice: counterPrice ? Number(counterPrice) : null,
+                djNote,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Chyba při aktualizaci bookingu.');
+        await refreshAllData();
+        return data;
+    };
+
+    const scanTicketCode = async (ticketCode) => {
+        const res = await fetch(`${API_BASE}/tickets/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketCode }),
+        });
+        const data = await res.json();
+        await refreshAllData();
+        return data;
     };
 
     return (
         <GigupContext.Provider
             value={{
-                users: mockUsers,
+                role,
+                setRole,
+                users: USERS_LIST,
                 currentUser,
+                currentUserId,
+                setCurrentUserId,
                 switchUser,
-                djs,
                 events,
+                djs,
                 bookings,
                 tickets,
+                loading,
+                error,
+                refreshAllData,
+                buyTicket: purchaseTicket,
+                purchaseTicket,
                 sendBookingOffer,
                 respondToBooking,
-                createEvent,
-                purchaseTicket,
-                validateTicketCode,
+                scanTicketCode,
             }}
         >
             {children}

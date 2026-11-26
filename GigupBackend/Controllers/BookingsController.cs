@@ -1,7 +1,3 @@
-/*
-Tento controller řeší zobrazování nabídek pro konkrétního DJ (např. DJ RAIVOX) i pořadatele, odesílání nových nabídek a změnu stavu (Accepted, Rejected, CounterOffered)
-*/
-
 using GigupBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,15 +15,15 @@ public class BookingsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/bookings/dj/1 (Vrátí všechny bookingy pro daný DJ profil)
-    [HttpGet("dj/{djProfileId}")]
-    public async Task<IActionResult> GetBookingsForDj(int djProfileId)
+    // GET: api/bookings (Všechny bookingy pro sestavení lineupů i dashboardů)
+    [HttpGet]
+    public async Task<IActionResult> GetAllBookings()
     {
         var bookings = await _context.Bookings
-            .Where(b => b.DjProfileId == djProfileId)
             .Include(b => b.Event)
                 .ThenInclude(e => e.Organizer)
-            .OrderByDescending(b => b.UpdatedAt)
+            .Include(b => b.DjProfile)
+            .OrderBy(b => b.SetStartTime)
             .Select(b => new
             {
                 b.Id,
@@ -35,36 +31,21 @@ public class BookingsController : ControllerBase
                 EventTitle = b.Event.Title,
                 VenueName = b.Event.VenueName,
                 EventDate = b.Event.StartDateTime,
+                OrganizerId = b.Event.OrganizerId,
                 OrganizerName = b.Event.Organizer.OrganizationName,
-                b.OfferedPrice,
-                b.SetStartTime,
-                b.SetEndTime,
-                b.Status,
-                b.OrganizerNote,
-                b.DjNote,
-                b.UpdatedAt
-            })
-            .ToListAsync();
-
-        return Ok(bookings);
-    }
-
-    // GET: api/bookings/organizer/1 (Vrátí všechny bookingy pro akce daného pořadatele)
-    [HttpGet("organizer/{organizerId}")]
-    public async Task<IActionResult> GetBookingsForOrganizer(int organizerId)
-    {
-        var bookings = await _context.Bookings
-            .Where(b => b.Event.OrganizerId == organizerId)
-            .Include(b => b.Event)
-            .Include(b => b.DjProfile)
-            .OrderByDescending(b => b.UpdatedAt)
-            .Select(b => new
-            {
-                b.Id,
-                b.EventId,
-                EventTitle = b.Event.Title,
                 b.DjProfileId,
                 DjStageName = b.DjProfile.StageName,
+                Genres = b.DjProfile.Genres,
+                Dj = new
+                {
+                    b.DjProfile.Id,
+                    b.DjProfile.StageName,
+                    b.DjProfile.City,
+                    b.DjProfile.Genres,
+                    b.DjProfile.PriceFrom,
+                    b.DjProfile.TechRider,
+                    b.DjProfile.ProfileImageUrl
+                },
                 b.OfferedPrice,
                 b.SetStartTime,
                 b.SetEndTime,
@@ -114,7 +95,7 @@ public class BookingsController : ControllerBase
         if (booking == null)
             return NotFound(new { message = "Booking nebyl nalezen." });
 
-        booking.Status = dto.Status; // "Accepted", "Rejected", nebo "CounterOffered"
+        booking.Status = dto.Status;
         if (dto.CounterPrice.HasValue && dto.Status == "CounterOffered")
         {
             booking.OfferedPrice = dto.CounterPrice.Value;

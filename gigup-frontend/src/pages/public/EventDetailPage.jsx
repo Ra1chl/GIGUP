@@ -8,7 +8,8 @@ import { useGigup } from "../../context/GigupContext";
 export default function EventDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { events, bookings, purchaseTicket } = useGigup();
+    const { events, bookings, purchaseTicket, role, currentUser } = useGigup();
+
     const [purchasedTicket, setPurchasedTicket] = useState(null);
 
     const event = events.find((e) => e.id === Number(id));
@@ -31,10 +32,14 @@ export default function EventDetailPage() {
 
     const remainingCapacity = Math.max(0, event.capacity - event.soldTickets);
 
-    const handleBuyTicket = () => {
-        const ticket = purchaseTicket(event.id);
-        if (ticket) {
-            setPurchasedTicket(ticket);
+    const handleBuyTicket = async () => {
+        try {
+            const ticket = await purchaseTicket(event.id);
+            if (ticket) {
+                setPurchasedTicket(ticket);
+            }
+        } catch (err) {
+            alert(err.message);
         }
     };
 
@@ -119,7 +124,7 @@ export default function EventDetailPage() {
                                             <div>
                                                 <p className="font-bold text-white text-base">{slot.djStageName}</p>
                                                 <div className="flex flex-wrap gap-1.5 mt-1">
-                                                    {slot.djGenres.map((g) => (
+                                                    {(slot.genres || slot.djGenres || []).map((g) => (
                                                         <span
                                                             key={g}
                                                             className="text-xs px-2 py-0.5 rounded bg-violet-500/15 text-violet-300"
@@ -152,7 +157,16 @@ export default function EventDetailPage() {
                             </p>
                         </div>
 
-                        {purchasedTicket ? (
+                        {role !== "Visitor" ? (
+                            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 space-y-2">
+                                <p className="text-xs font-semibold text-zinc-300">
+                                    Přihlášen jako {currentUser?.fullName} ({role})
+                                </p>
+                                <p className="text-xs text-zinc-500 leading-relaxed">
+                                    Nákup vstupenek je dostupný pouze pro účty běžných návštěvníků.
+                                </p>
+                            </div>
+                        ) : purchasedTicket ? (
                             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
                                 <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
                                     <CheckCircle2 className="w-5 h-5 shrink-0" />

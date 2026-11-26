@@ -44,10 +44,12 @@ export default function Navbar() {
                         DJs
                     </NavLink>
 
-                    <NavLink to="/my-tickets" className={navLinkClass}>
-                        <Ticket className="w-4 h-4" />
-                        Moje vstupenky
-                    </NavLink>
+                    {currentUser?.role === "Visitor" && (
+                        <NavLink to="/my-tickets" className={navLinkClass}>
+                            <Ticket className="w-4 h-4" />
+                            Moje vstupenky
+                        </NavLink>
+                    )}
 
                     {currentUser?.role === "DJ" && (
                         <NavLink to="/dj/dashboard" className={navLinkClass}>

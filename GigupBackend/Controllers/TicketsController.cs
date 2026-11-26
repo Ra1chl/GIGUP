@@ -51,6 +51,13 @@ public class TicketsController : ControllerBase
     [HttpPost("purchase")]
     public async Task<IActionResult> PurchaseTicket([FromBody] PurchaseTicketDto dto)
     {
+        var user = await _context.Users.FindAsync(dto.UserId);
+        if (user == null)
+            return NotFound(new { message = "Uživatel nebyl nalezen." });
+
+        if (user.Role != "Visitor")
+            return StatusCode(403, new { message = "Nákup vstupenek je povolen pouze pro běžné návštěvníky (Visitor)." });
+
         var ev = await _context.Events
             .Include(e => e.Tickets)
             .FirstOrDefaultAsync(e => e.Id == dto.EventId);
