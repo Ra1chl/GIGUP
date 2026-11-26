@@ -1,3 +1,6 @@
+/*
+Vrací zveřejněné akce včetně názvu pořadatele, obsazenosti a pouze potvrzeného lineupu (Status == "Accepted")
+*/
 using GigupBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

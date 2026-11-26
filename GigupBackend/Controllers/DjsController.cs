@@ -1,3 +1,6 @@
+/*
+Vrací seznam DJů pro katalog a vyhledávání
+*/
 using GigupBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
