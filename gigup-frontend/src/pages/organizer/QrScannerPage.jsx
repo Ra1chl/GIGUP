@@ -22,8 +22,8 @@ export default function QrScannerPage() {
         );
 
         scanner.render(
-            (decodedText) => {
-                const res = validateTicketCode(decodedText, currentEvent?.id);
+            async (decodedText) => {
+                const res = await validateTicketCode(decodedText, currentEvent?.id);
                 setScanResult(res);
             },
             () => { }
@@ -34,10 +34,10 @@ export default function QrScannerPage() {
         };
     }, [currentEvent?.id]);
 
-    const handleManualCheck = (e) => {
+    const handleManualCheck = async (e) => {
         e.preventDefault();
         if (!manualCode.trim()) return;
-        const res = validateTicketCode(manualCode, currentEvent?.id);
+        const res = await validateTicketCode(manualCode);
         setScanResult(res);
     };
 
@@ -56,8 +56,8 @@ export default function QrScannerPage() {
             {scanResult && (
                 <div
                     className={`p-5 rounded-2xl border flex items-start gap-3 ${scanResult.ok
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                            : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                        : "bg-rose-500/15 border-rose-500/40 text-rose-300"
                         }`}
                 >
                     {scanResult.ok ? (

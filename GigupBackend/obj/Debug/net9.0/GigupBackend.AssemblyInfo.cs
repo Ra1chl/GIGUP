@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GigupBackend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed96a7472c311462c68a1b081712cbdbd3f2cae9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8b1419117aa3676f2df5e3d928abe6bfa3898f26")]
 [assembly: System.Reflection.AssemblyProductAttribute("GigupBackend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GigupBackend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

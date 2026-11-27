@@ -8,6 +8,7 @@ export default function DjsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedGenre, setSelectedGenre] = useState("All");
     const [maxPrice, setMaxPrice] = useState(10000);
+    const [statusBanner, setStatusBanner] = useState(null);
 
     // Stav pro modální okno odeslání nabídky (pro pořadatele)
     const [bookingDj, setBookingDj] = useState(null);
@@ -17,6 +18,8 @@ export default function DjsPage() {
     const [setEndTime, setSetEndTime] = useState("01:00");
     const [organizerNote, setOrganizerNote] = useState("");
     const [offerSentToast, setOfferSentToast] = useState(false);
+    const [offerError, setOfferError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const allGenres = ["All", "Drum & Bass", "Neurofunk", "Techno", "Melodic Techno", "Tech-House", "House"];
 
@@ -29,34 +32,54 @@ export default function DjsPage() {
         return matchesSearch && matchesGenre && matchesPrice;
     });
 
-    // Akce patřící přihlášenému pořadateli
-    const organizerEvents = events.filter(
-        (e) => e.organizerId === currentUser?.organizerProfileId
-    );
+    const activeOrganizerId = currentUser?.organizerId ?? currentUser?.organizerProfileId;
+    const filteredOrganizerEvents = activeOrganizerId
+        ? events.filter((e) => Number(e.organizerId) === Number(activeOrganizerId))
+        : events;
+    const organizerEvents = filteredOrganizerEvents.length > 0 ? filteredOrganizerEvents : events;
 
     const openBookingModal = (dj) => {
+        const availableEvents = filteredOrganizerEvents.length > 0 ? filteredOrganizerEvents : events;
+        setOfferError("");
+        setStatusBanner(null);
         setBookingDj(dj);
         setOfferedPrice(dj.priceFrom);
-        setSelectedEventId(organizerEvents[0]?.id || "");
+        setSelectedEventId(availableEvents[0]?.id ? String(availableEvents[0].id) : "");
         setOrganizerNote("");
     };
 
-    const handleSendOffer = (e) => {
+    const handleSendOffer = async (e) => {
         e.preventDefault();
-        if (!bookingDj || !selectedEventId) return;
-
-        sendBookingOffer({
-            eventId: selectedEventId,
-            djProfileId: bookingDj.id,
-            offeredPrice,
-            setStartTime,
-            setEndTime,
-            organizerNote,
-        });
-
-        setBookingDj(null);
-        setOfferSentToast(true);
-        setTimeout(() => setOfferSentToast(false), 3500);
+        setOfferError("");
+        setStatusBanner(null);
+        setIsSubmitting(true);
+        try {
+            await sendBookingOffer({
+                eventId: selectedEventId,
+                djProfileId: bookingDj.id,
+                offeredPrice,
+                setStartTime,
+                setEndTime,
+                organizerNote,
+            });
+            const successMsg = `Nabídka na vystoupení pro ${bookingDj.stageName} byla úspěšně odeslána!`;
+            setStatusBanner({
+                type: "success",
+                text: successMsg,
+            });
+            setBookingDj(null);
+            setOfferSentToast(true);
+            setTimeout(() => setOfferSentToast(false), 3500);
+        } catch (err) {
+            const errorMsg = err.message || "Tomuto DJovi už byla na tuto akci odeslána nabídka.";
+            setOfferError(errorMsg);
+            setStatusBanner({
+                type: "error",
+                text: errorMsg,
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -122,6 +145,18 @@ export default function DjsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Stavový banner na stránce */}
+            {statusBanner && (
+                <div
+                    className={`p-4 rounded-2xl border text-sm font-medium ${statusBanner.type === "success"
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                        : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                        }`}
+                >
+                    {statusBanner.text}
+                </div>
+            )}
 
             {/* Karty DJů */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -268,6 +303,23 @@ export default function DjsPage() {
                                 />
                             </div>
 
+                            {offerError && (
+                                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-medium">
+                                    {offerError}
+                                </div>
+                            )}
+
+                            {statusBanner && (
+                                <div
+                                    className={`p-4 rounded-2xl border text-sm font-medium ${statusBanner.type === "success"
+                                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                                        : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                                        }`}
+                                >
+                                    {statusBanner.text}
+                                </div>
+                            )}
+
                             <div className="flex justify-end gap-2 pt-2">
                                 <button
                                     type="button"
@@ -278,9 +330,10 @@ export default function DjsPage() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold cursor-pointer"
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold cursor-pointer"
                                 >
-                                    Odeslat nabídku
+                                    {isSubmitting ? "Odesílám..." : "Odeslat nabídku"}
                                 </button>
                             </div>
                         </form>

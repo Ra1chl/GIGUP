@@ -109,4 +109,43 @@ public class EventsController : ControllerBase
 
         return Ok(ev);
     }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateEvent([FromBody] CreateEventDto dto)
+    {
+        var start = DateTime.Parse(dto.StartDateTime);
+
+        var newEvent = new Event
+        {
+            OrganizerId = dto.OrganizerId > 0 ? dto.OrganizerId : 1,
+            Title = dto.Title,
+            Description = dto.Description ?? "",
+            StartDateTime = start,
+            EndDateTime = start.AddHours(6),
+            VenueName = dto.VenueName,
+            City = "Praha",
+            TicketPrice = dto.TicketPrice,
+            Capacity = dto.Capacity,
+            CoverImageUrl = string.IsNullOrWhiteSpace(dto.CoverImageUrl)
+                ? "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80"
+                : dto.CoverImageUrl,
+            Status = "Published"
+        };
+
+        _context.Events.Add(newEvent);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Akce byla úspěšně vytvořena.", id = newEvent.Id });
+    }
 }
+
+public record CreateEventDto(
+    int OrganizerId,
+    string Title,
+    string? Description,
+    string StartDateTime,
+    string VenueName,
+    decimal TicketPrice,
+    int Capacity,
+    string? CoverImageUrl
+);

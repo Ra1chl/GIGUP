@@ -101,6 +101,27 @@ export function GigupProvider({ children }) {
         refreshAllData();
     }, [refreshAllData]);
 
+    const createEvent = async (eventData) => {
+        const res = await fetch(`${API_BASE}/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                organizerId: currentUser?.organizerId || 1,
+                title: eventData.title,
+                description: eventData.description || '',
+                startDateTime: eventData.startDateTime || eventData.date,
+                venueName: eventData.venueName || eventData.venue || 'Storm Club Prague',
+                ticketPrice: Number(eventData.ticketPrice ?? eventData.price ?? 250),
+                capacity: Number(eventData.capacity ?? 200),
+                coverImageUrl: eventData.coverImageUrl || '',
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Chyba při vytváření akce.');
+        await refreshAllData();
+        return data;
+    };
+
     const purchaseTicket = async (eventId) => {
         const res = await fetch(`${API_BASE}/tickets/purchase`, {
             method: 'POST',
@@ -156,7 +177,12 @@ export function GigupProvider({ children }) {
         });
         const data = await res.json();
         await refreshAllData();
-        return data;
+        return {
+            ...data,
+            ok: Boolean(data.valid),
+            isValid: Boolean(data.valid),
+            success: Boolean(data.valid),
+        };
     };
 
     return (
@@ -176,11 +202,13 @@ export function GigupProvider({ children }) {
                 loading,
                 error,
                 refreshAllData,
+                createEvent,
                 buyTicket: purchaseTicket,
                 purchaseTicket,
                 sendBookingOffer,
                 respondToBooking,
                 scanTicketCode,
+                validateTicketCode: scanTicketCode,
             }}
         >
             {children}
